@@ -85,6 +85,8 @@ class RespirationBeltSensor:
         max_len = int(history_seconds * sample_rate_hz)
         self.smoothed_buf = deque(maxlen=max_len)
         self._smoothed_sum = 0.0
+        self._smoothed_minq = deque()
+        self._smoothed_maxq = deque()
         self.timestamps = deque(maxlen=max_len)
         self._breath_times = deque(maxlen=6)
         self._recent = deque(maxlen=5)
@@ -100,11 +102,31 @@ class RespirationBeltSensor:
         self._raw_sum = self._append_rolling(self.raw_buf, raw_value, self._raw_sum)
         return self._raw_sum / len(self.raw_buf)
 
+    def _append_smoothed(self, val: float):
+        if len(self.smoothed_buf) == self.smoothed_buf.maxlen:
+            old = self.smoothed_buf[0]
+            self._smoothed_sum -= old
+            if self._smoothed_minq and old == self._smoothed_minq[0]:
+                self._smoothed_minq.popleft()
+            if self._smoothed_maxq and old == self._smoothed_maxq[0]:
+                self._smoothed_maxq.popleft()
+
+        self.smoothed_buf.append(val)
+        self._smoothed_sum += val
+
+        while self._smoothed_minq and self._smoothed_minq[-1] > val:
+            self._smoothed_minq.pop()
+        self._smoothed_minq.append(val)
+
+        while self._smoothed_maxq and self._smoothed_maxq[-1] < val:
+            self._smoothed_maxq.pop()
+        self._smoothed_maxq.append(val)
+
     def poll(self):
         raw = self.adc.read_channel(self.channel)
         now = time.time()
         smoothed = self._smooth(raw)
-        self._smoothed_sum = self._append_rolling(self.smoothed_buf, smoothed, self._smoothed_sum)
+        self._append_smoothed(smoothed)
         self.timestamps.append(now)
         self._detect_breath(smoothed, now)
 
@@ -129,7 +151,7 @@ class RespirationBeltSensor:
         if not self.smoothed_buf or len(self.smoothed_buf) < self.smoothed_buf.maxlen // 4:
             return RespirationReading(0.0, "no_signal")
 
-        signal_span = max(self.smoothed_buf) - min(self.smoothed_buf)
+        signal_span = self._smoothed_maxq[0] - self._smoothed_minq[0]
         if signal_span < 3:
             return RespirationReading(0.0, "no_signal")
 

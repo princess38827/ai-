@@ -122,20 +122,45 @@ class SpO2HRCalculator:
         self.sample_rate_hz = sample_rate_hz
         self.red_buf = deque(maxlen=window_size)
         self.ir_buf = deque(maxlen=window_size)
+        self._red_minq = deque()
+        self._red_maxq = deque()
+        self._ir_minq = deque()
+        self._ir_maxq = deque()
         self._recent_ir = deque(maxlen=5)
         self._red_sum = 0.0
         self._ir_sum = 0.0
         self._last_peak_time = None
         self._bpm_estimates = deque(maxlen=5)
 
+    @staticmethod
+    def _update_minmax(minq: deque, maxq: deque, val: int):
+        while minq and minq[-1] > val:
+            minq.pop()
+        minq.append(val)
+        while maxq and maxq[-1] < val:
+            maxq.pop()
+        maxq.append(val)
+
     def _append_sample(self, red: int, ir: int):
         if len(self.red_buf) == self.red_buf.maxlen:
             self._red_sum -= self.red_buf[0]
             self._ir_sum -= self.ir_buf[0]
+            old_red = self.red_buf[0]
+            old_ir = self.ir_buf[0]
+            if self._red_minq and old_red == self._red_minq[0]:
+                self._red_minq.popleft()
+            if self._red_maxq and old_red == self._red_maxq[0]:
+                self._red_maxq.popleft()
+            if self._ir_minq and old_ir == self._ir_minq[0]:
+                self._ir_minq.popleft()
+            if self._ir_maxq and old_ir == self._ir_maxq[0]:
+                self._ir_maxq.popleft()
         self.red_buf.append(red)
         self.ir_buf.append(ir)
         self._red_sum += red
         self._ir_sum += ir
+        self._update_minmax(self._red_minq, self._red_maxq, red)
+        self._update_minmax(self._ir_minq, self._ir_maxq, ir)
 
     def add_samples(self, samples):
         if not samples:
@@ -164,8 +189,8 @@ class SpO2HRCalculator:
 
         ir_dc = self._ir_sum / len(self.ir_buf)
         red_dc = self._red_sum / len(self.red_buf)
-        ir_ac = max(self.ir_buf) - min(self.ir_buf)
-        red_ac = max(self.red_buf) - min(self.red_buf)
+        ir_ac = self._ir_maxq[0] - self._ir_minq[0]
+        red_ac = self._red_maxq[0] - self._red_minq[0]
 
         if ir_dc < 5000 or ir_ac < 50:
             return PulseOxReading(0.0, 0.0, "no_signal")
@@ -196,11 +221,7 @@ class VitalsMonitor:
         print("Place finger on sensor...")
         while time.time() - start < duration_sec:
             reading = self.poll_once()
-            print(
-                f"HR: {reading.heart_rate_bpm:5.1f} bpm   "
-                f"SpO2: {reading.spo2_percent:5.1f}%   "
-                f"Signal: {reading.signal_quality}"
-            )
+            print(f"Pulse-ox sample captured. Signal: {reading.signal_quality}")
             time.sleep(interval_sec)
 
 

@@ -67,7 +67,8 @@ def assess_subjective(
         result.can_follow_commands = reading.can_follow_commands
 
         mobility = mobility_assessor
-        if AVPULevel is not None and reading.avpu_level == AVPULevel.ALERT:
+        avpu_value = getattr(reading.avpu_level, "value", str(reading.avpu_level))
+        if str(avpu_value).upper() == "ALERT":
             if mobility is None and MOBILITY_AVAILABLE:
                 mobility = MobilityAssessment(camera_index=camera_index, announce=checker.speak)
             if mobility is not None:
@@ -149,4 +150,3 @@ def run_live_triage(
     unit.patients.append(patient)
     unit.report()
     return patient
-

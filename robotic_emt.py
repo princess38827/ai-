@@ -138,8 +138,8 @@ class RoboticEMT:
 
     def report(self):
         print(f"\n=== Robotic EMT Unit {self.unit_id} — Scene Report ===")
-        for p in self.transport_queue():
-            print(f"\nPatient {p.patient_id}: {p.triage.value}")
+        for idx, p in enumerate(self.transport_queue(), start=1):
+            print(f"\nPatient #{idx}: {p.triage.value}")
             print(
                 f"  RR={p.vitals.respiratory_rate}/min  "
                 f"CapRefill={p.vitals.capillary_refill_sec}s  "

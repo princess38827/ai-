@@ -11,6 +11,7 @@ from vitals_integration import VitalsAggregator
 class AVPULevel(Enum):
     ALERT = "ALERT"
     VERBAL = "VERBAL"
+    PAIN = "PAIN"
     UNRESPONSIVE = "UNRESPONSIVE"
 
 
@@ -74,7 +75,7 @@ class MockCapillaryRefillMonitor:
         return None
 
 
-class _MockRespReading:
+class _MockResponsivenessReading:
     def __init__(self, avpu_level: AVPULevel, can_follow: bool):
         self.avpu_level = avpu_level
         self.can_follow_commands = can_follow
@@ -90,7 +91,7 @@ class MockResponsivenessChecker:
 
     def assess(self):
         can_follow = self.scenario.avpu_level == AVPULevel.ALERT
-        return _MockRespReading(self.scenario.avpu_level, can_follow)
+        return _MockResponsivenessReading(self.scenario.avpu_level, can_follow)
 
 
 class _MockMobReading:
@@ -122,4 +123,3 @@ def build_mock_bundle(scenario: PatientScenario):
             "mobility_assessor": MockMobilityAssessment(scenario),
         },
     }
-
