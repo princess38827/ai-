@@ -37,3 +37,4 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+        [![Python application](https://github.com/princess38827/ai-/actions/workflows/python-app.yml/badge.svg)](https://github.com/princess38827/ai-/actions/workflows/python-app.yml)
